@@ -1,0 +1,24 @@
+{
+  "name": "phantix-command-centre",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Phantix Security Solutions — Product Delivery Command Centre",
+  "license": "ISC",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "dev":   "node server.js",
+    "start": "node server.js",
+    "debug": "node --inspect server.js"
+  },
+  "dependencies": {
+    "cookie-parser":  "^1.4.6",
+    "cors":           "^2.8.5",
+    "dotenv":         "^17.4.2",
+    "express":        "^4.18.2",
+    "firebase-admin": "^12.7.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
