@@ -249,7 +249,7 @@ async function bootApp(session) {
   });
 
   // Fetch all data in parallel
-  showLoader('Loading workspace…');
+  showLoader('Loading your workspace…');
   try {
     const [
       logsRes, milestonesRes, risksRes,
@@ -277,6 +277,8 @@ async function bootApp(session) {
       risks:    (risksRes.risks || []).filter(r => r.level === 'HIGH').length,
     });
 
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
   } catch (err) {
     console.error('[App] Boot data load failed:', err.message);
   }

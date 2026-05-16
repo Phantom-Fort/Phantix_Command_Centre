@@ -6,7 +6,7 @@ const { db, auth }         = require('./firebase');
 const { requireAuth, requireAdmin } = require('./authMiddleware');
 
 const router    = express.Router();
-const ADMIN_KEY = process.env.ADMIN_REGISTRATION_KEY || 'PHANTIX-ADMIN-2026';
+const ADMIN_KEY = process.env.ADMIN_REGISTRATION_KEY;
 const LOCK_END  = new Date('2026-11-09');
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,11 +32,24 @@ router.get('/api/config/firebase', (req, res) => {
 
 router.post('/api/auth/lookup', async (req, res) => {
   try {
-    const { username } = req.body;
-    if (!username) return res.status(400).json({ error: 'username is required' });
+    let { username } = req.body;
+    if (!username) {
+      return res.status(400).json({ error: 'Username or email is required' });
+    }
 
+    const input = username.trim().toLowerCase();
+
+    // If input looks like an email, return it directly (no DB query needed)
+    if (input.includes('@')) {
+      return res.json({ 
+        email: input,
+        source: 'email' 
+      });
+    }
+
+    // Otherwise, treat it as username and lookup in Firestore
     const snap = await db.collection('users')
-      .where('username', '==', username.toLowerCase().trim())
+      .where('username', '==', input)
       .limit(1)
       .get();
 
@@ -45,9 +58,12 @@ router.post('/api/auth/lookup', async (req, res) => {
     }
 
     const profile = snap.docs[0].data();
-    // Return email so the client can pass it to signInWithEmailAndPassword()
-    // Do NOT return uid, role, or any other sensitive data here
-    res.json({ email: profile.email });
+
+    res.json({ 
+      email: profile.email,
+      source: 'username'
+    });
+
   } catch (err) {
     console.error('[/api/auth/lookup]', err.message);
     res.status(500).json({ error: err.message });
@@ -66,50 +82,99 @@ router.post('/api/auth/lookup', async (req, res) => {
 router.post('/api/auth/register', async (req, res) => {
   try {
     const { uid, name, username, email, role, adminKey } = req.body;
+
+    // ── Required fields ─────────────────────────────
     if (!uid || !name || !username || !email) {
-      return res.status(400).json({ error: 'uid, name, username, email are required' });
+      return res.status(400).json({
+        error: 'uid, name, username, email are required'
+      });
     }
 
-    if (role === 'admin') {
-      if (adminKey !== ADMIN_KEY) {
-        try { await auth.deleteUser(uid); } catch (_) {}
-        return res.status(403).json({ error: 'Invalid admin key' });
-      }
-      await auth.setCustomUserClaims(uid, { role: 'admin' });
+    // ── Verify Firebase Auth user actually exists ──
+    try {
+      await auth.getUser(uid);
+    } catch (_) {
+      return res.status(400).json({
+        error: 'Invalid Firebase user'
+      });
     }
 
-    // Check username uniqueness
-    const uname   = username.toLowerCase().trim();
+    // ── Normalize input ─────────────────────────────
+    const cleanName     = name.trim();
+    const cleanUsername = username.toLowerCase().trim();
+    const cleanEmail    = email.toLowerCase().trim();
+
+    // ── Prevent duplicate usernames ─────────────────
     const existing = await db.collection('users')
-      .where('username', '==', uname).limit(1).get();
+      .where('username', '==', cleanUsername)
+      .limit(1)
+      .get();
+
     if (!existing.empty) {
       try { await auth.deleteUser(uid); } catch (_) {}
-      return res.status(409).json({ error: 'Username already taken' });
+
+      return res.status(409).json({
+        error: 'Username already taken'
+      });
     }
 
-    const userRole = role === 'admin' ? 'admin' : 'contributor';
+    // ── Role validation ─────────────────────────────
+    let userRole = 'contributor';
 
-    // Write user profile
+    if (role === 'admin') {
+      if (!ADMIN_KEY) {
+        return res.status(500).json({
+          error: 'Admin registration disabled'
+        });
+      }
+
+      if (adminKey !== ADMIN_KEY) {
+        try { await auth.deleteUser(uid); } catch (_) {}
+
+        return res.status(403).json({
+          error: 'Invalid admin key'
+        });
+      }
+
+      userRole = 'admin';
+
+      await auth.setCustomUserClaims(uid, {
+        role: 'admin'
+      });
+    }
+
+    // ── Create Firestore profile ────────────────────
     await db.collection('users').doc(uid).set({
-      name:      name.trim(),
-      username:  uname,
-      email:     email.toLowerCase().trim(),
-      role:      userRole,
+      name: cleanName,
+      username: cleanUsername,
+      email: cleanEmail,
+      role: userRole,
       createdAt: new Date().toISOString(),
     });
 
+    // ── Audit log ───────────────────────────────────
     await db.collection('logs').add({
-      type:      'milestone',
-      text:      `New user registered: ${name.trim()} (@${uname}) — ${userRole}`,
-      date:      new Date().toISOString().split('T')[0],
-      author:    'System',
+      type: 'milestone',
+      text: `New user registered: ${cleanName} (@${cleanUsername}) — ${userRole}`,
+      date: new Date().toISOString().split('T')[0],
+      author: 'System',
       createdAt: new Date(),
     });
 
-    res.json({ ok: true, name: name.trim(), role: userRole });
+    return res.json({
+      ok: true,
+      name: cleanName,
+      role: userRole,
+    });
+
   } catch (err) {
-    console.error('[/api/auth/register]', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('[/api/auth/register]', err);
+
+    return res.status(500).json({
+      error: process.env.NODE_ENV === 'development'
+        ? err.message
+        : 'Registration failed'
+    });
   }
 });
 
@@ -219,7 +284,7 @@ router.post('/api/risks', requireAuth, async (req, res) => {
   }
 });
 
-router.delete('/api/risks/:id', requireAuth, async (req, res) => {
+router.delete('/api/risks/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     await db.collection('risks').doc(req.params.id).delete();
     res.json({ ok: true });

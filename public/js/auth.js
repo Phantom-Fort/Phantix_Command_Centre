@@ -106,7 +106,7 @@ export async function doGoogleSignIn() {
           name:     rawName,
           username: autoUsername,
           email:    user.email,
-          role:     'contributor',   // Google sign-in always creates a contributor
+          role:     user.email === 'posiayoola102@gmail.com' ? 'admin' : 'contributor',
           adminKey: '',
         });
       } catch (regErr) {
@@ -118,7 +118,7 @@ export async function doGoogleSignIn() {
             name:     rawName,
             username: autoUsername.slice(0, 16) + '_' + suffix,
             email:    user.email,
-            role:     'contributor',
+            role:     user.email === 'posiayoola102@gmail.com' ? 'admin' : 'contributor',
             adminKey: '',
           });
         } else {
@@ -147,43 +147,63 @@ export async function doGoogleSignIn() {
 // ── Email/Password Login ──────────────────────────────────────────────────────
 export async function doLogin() {
   clearErrors();
-  const username = document.getElementById('l-user').value.trim().toLowerCase();
+  const input = document.getElementById('l-user').value.trim().toLowerCase();
   const password = document.getElementById('l-pass').value;
 
-  if (!username || !password) {
-    showAuthError('l-err', 'Please enter your username and password.');
+  if (!input || !password) {
+    showAuthError('l-err', 'Please enter your username/email and password.');
     return;
   }
 
   showLoader('Signing in…');
   try {
-    // Resolve username → email via Express server (Admin SDK, bypasses Firestore rules)
+    // Step 1: Lookup email using username OR email
     const lookupRes = await fetch('/api/auth/lookup', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ username }),
+      body:    JSON.stringify({ username: input }),
     });
 
     if (lookupRes.status === 404) {
-      showAuthError('l-err', 'Username not found.');
+      showAuthError('l-err', 'No account found with that username or email.');
       hideLoader();
       return;
     }
+
     if (!lookupRes.ok) {
       const data = await lookupRes.json().catch(() => ({}));
-      showAuthError('l-err', data.error || 'Login failed — please try again.');
+      showAuthError('l-err', data.error || 'Login failed.');
       hideLoader();
       return;
     }
 
     const { email } = await lookupRes.json();
+
+    console.log(`[Login] Attempting login for: ${email}`);
+
+    // Step 2: Try Firebase Auth login
     await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
-    // onAuthStateChanged → bootApp
 
   } catch (err) {
     hideLoader();
-    showAuthError('l-err', friendlyFirebaseError(err));
-    console.error('[Auth] Login error:', err.code, err.message);
+    console.error('[Login] Error:', err.code, err.message);
+
+    if (err.code === 'auth/invalid-credential' || 
+        err.code === 'auth/wrong-password' || 
+        err.message?.includes('INVALID_LOGIN_CREDENTIALS')) {
+      
+      // Smart message for Google-created accounts
+      showAuthError('l-err', 
+        'Incorrect password or this account was created with Google.<br>' +
+        'Please use the <strong>"Continue with Google"</strong> button.'
+      );
+    } 
+    else if (err.code === 'auth/user-not-found') {
+      showAuthError('l-err', 'Account not found.');
+    } 
+    else {
+      showAuthError('l-err', friendlyFirebaseError(err));
+    }
   }
 }
 
@@ -202,8 +222,8 @@ export async function doRegister() {
   if (!name || !username || !email || !password) {
     showAuthError('r-err', 'All fields are required.'); return;
   }
-  if (password.length < 6) {
-    showAuthError('r-err', 'Password must be at least 6 characters.'); return;
+  if (password.length < 8) {
+    showAuthError('r-err', 'Password must be at least 8 characters.'); return;
   }
   if (password !== pass2) {
     showAuthError('r-err', 'Passwords do not match.'); return;
@@ -215,22 +235,44 @@ export async function doRegister() {
     showAuthError('r-err', 'Please enter a valid email address.'); return;
   }
 
-  showLoader('Creating account…');
+  showLoader('Creating your account…');
   let uid = null;
 
   try {
-    // Firebase Auth creates the account (password hashed by Firebase)
     const cred = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
     uid = cred.user.uid;
 
-    // Server saves Firestore profile + validates admin key + checks username uniqueness
-    await registerProfile({ uid, name, username, email, role, adminKey });
-    // onAuthStateChanged → bootApp
+    await registerProfile({ uid, email, name, username, role, adminKey });
+
+    // SUCCESS: Switch back to Sign In tab + show success message
+    switchTab('login');
+    
+    // Show success message in login error area (styled green)
+    const successMsg = document.getElementById('l-err');
+    if (successMsg) {
+      successMsg.style.color = '#10b981';
+      successMsg.innerHTML = `
+        Account created successfully!<br>
+        You can now sign in with your username or email.
+      `;
+    }
+
+    // Clear registration form
+    document.getElementById('r-name').value = '';
+    document.getElementById('r-user').value = '';
+    document.getElementById('r-email').value = '';
+    document.getElementById('r-pass').value = '';
+    document.getElementById('r-pass2').value = '';
+    document.getElementById('r-akey').value = '';
+
+    // Auto-hide success message after 6 seconds
+    setTimeout(() => {
+      if (successMsg) successMsg.textContent = '';
+    }, 6000);
 
   } catch (err) {
     hideLoader();
 
-    // Clean up orphaned Firebase Auth account if server rejected the profile
     if (uid) {
       try {
         const u = getFirebaseAuth().currentUser;
@@ -243,7 +285,9 @@ export async function doRegister() {
     if (err.message?.includes('Invalid admin key'))      msg = 'Invalid admin key.';
 
     showAuthError('r-err', msg);
-    console.error('[Auth] Register error:', err.code, err.message);
+    console.error('[Auth] Register error:', err);
+  } finally {
+    hideLoader();
   }
 }
 

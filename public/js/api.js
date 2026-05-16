@@ -39,11 +39,37 @@ async function apiFetch(path, options = {}) {
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 
 /** Called after Firebase createUserWithEmailAndPassword — saves profile to Firestore via server */
-export async function registerProfile({ uid, name, username, role, adminKey }) {
-  return apiFetch('/api/auth/register', {
+export async function registerProfile({
+  uid,
+  email,
+  name,
+  username,
+  role,
+  adminKey
+}) {
+
+  const res = await fetch('/api/auth/register', {
     method: 'POST',
-    body: { uid, name, username, role, adminKey: adminKey || '' },
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      uid,
+      email,
+      name,
+      username,
+      role,
+      adminKey: adminKey || ''
+    })
   });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+
+  return data;
 }
 
 export async function getMe()        { return apiFetch('/api/auth/me'); }

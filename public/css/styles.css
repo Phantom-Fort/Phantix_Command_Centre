@@ -296,3 +296,16 @@ textarea.ifield{resize:vertical;min-height:70px;line-height:1.55;}
   pointer-events: none;
   cursor: not-allowed;
 }
+
+.auth-err {
+  color: var(--danger);
+  font-size: 11px;
+  font-family: var(--fm);
+  min-height: 18px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.auth-err[style*="color: rgb(16, 185, 129)"] {  /* green success */
+  font-weight: 500;
+}
