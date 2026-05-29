@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import {
-  getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -10,16 +9,39 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   User,
+  Auth,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { app, db } from "@/lib/firebase";
+import { doc, getDoc, Firestore } from "firebase/firestore";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { UserSession } from "@/lib/types";
 import { registerProfile } from "@/lib/api-client";
 
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope("email");
-googleProvider.addScope("profile");
+let _authCache: Auth | null = null;
+let _dbCache: Firestore | null = null;
+
+function getAuthInstance(): Auth {
+  if (!_authCache) {
+    _authCache = getFirebaseAuth()!;
+  }
+  return _authCache;
+}
+
+function getDbInstance(): Firestore {
+  if (!_dbCache) {
+    _dbCache = getFirebaseDb()!;
+  }
+  return _dbCache;
+}
+
+let _googleProvider: GoogleAuthProvider | null = null;
+function getGoogleProvider(): GoogleAuthProvider {
+  if (!_googleProvider) {
+    _googleProvider = new GoogleAuthProvider();
+    _googleProvider.addScope("email");
+    _googleProvider.addScope("profile");
+  }
+  return _googleProvider;
+}
 
 interface AuthContextType {
   firebaseUser: User | null;
@@ -46,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const buildSession = useCallback(async (fbUser: User): Promise<UserSession> => {
+    const db = getDbInstance();
     let snap = await getDoc(doc(db, "users", fbUser.uid));
     if (!snap.exists()) {
       await new Promise((r) => setTimeout(r, 1500));
@@ -65,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const auth = getAuthInstance();
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
@@ -85,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [buildSession]);
 
   const login = async (username: string, password: string) => {
+    const auth = getAuthInstance();
     const res = await fetch("/api/auth/lookup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -100,7 +125,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithGoogle = async () => {
-    const result = await signInWithPopup(auth, googleProvider);
+    const auth = getAuthInstance();
+    const db = getDbInstance();
+    const result = await signInWithPopup(auth, getGoogleProvider());
     const user = result.user;
     const profileSnap = await getDoc(doc(db, "users", user.uid));
     if (!profileSnap.exists()) {
@@ -133,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (payload: {
+  const registerFunc = async (payload: {
     name: string;
     username: string;
     email: string;
@@ -141,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     adminKey: string;
     password: string;
   }) => {
+    const auth = getAuthInstance();
     const { name, username, email, role, adminKey, password } = payload;
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     const uid = cred.user.uid;
@@ -156,11 +184,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    const auth = getAuthInstance();
     await signOut(auth);
   };
 
   return (
-    <AuthContext.Provider value={{ firebaseUser, session, loading, login, loginWithGoogle, register, logout }}>
+    <AuthContext.Provider value={{ firebaseUser, session, loading, login, loginWithGoogle, register: registerFunc, logout }}>
       {children}
     </AuthContext.Provider>
   );

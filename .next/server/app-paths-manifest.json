@@ -1,1 +1,9 @@
-{}
+{
+  "/api/logs/route": "app/api/logs/route.js",
+  "/page": "app/page.js",
+  "/api/state/route": "app/api/state/route.js",
+  "/api/manifest/route": "app/api/manifest/route.js",
+  "/api/milestones/route": "app/api/milestones/route.js",
+  "/api/insights/route": "app/api/insights/route.js",
+  "/api/risks/route": "app/api/risks/route.js"
+}
