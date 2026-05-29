@@ -1,6 +1,5 @@
+.env.local
+.env*
 node_modules/
+dist/
 .env
-firebase-service-account.json
-.vercel/
-*.log
-.DS_Store
