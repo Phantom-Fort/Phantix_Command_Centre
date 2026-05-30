@@ -8,15 +8,21 @@ import AppShell from "@/components/AppShell";
 
 function AppContent() {
   const { firebaseUser, session, loading: authLoading } = useAuth();
-  const { bootApp, session: appSession } = useApp();
-  const booted = useRef(false);
+  const { bootApp, dispatch } = useApp();
+  const bootedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (session && firebaseUser && !booted.current) {
-      booted.current = true;
+    if (!firebaseUser) {
+      bootedRef.current = null;
+      dispatch({ type: "RESET_ALL" });
+      return;
+    }
+
+    if (session && firebaseUser && bootedRef.current !== firebaseUser.uid) {
+      bootedRef.current = firebaseUser.uid;
       bootApp(session);
     }
-  }, [session, firebaseUser, bootApp]);
+  }, [session, firebaseUser, bootApp, dispatch]);
 
   if (authLoading) {
     return (

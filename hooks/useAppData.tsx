@@ -42,7 +42,8 @@ type AppAction =
   | { type: "SET_BOOKS_READ"; payload: Record<string, boolean> }
   | { type: "TOGGLE_BOOK_READ"; payload: string }
   | { type: "SET_ARCH_TASKS"; payload: Record<string, boolean> }
-  | { type: "TOGGLE_ARCH_TASK"; payload: string };
+  | { type: "TOGGLE_ARCH_TASK"; payload: string }
+  | { type: "RESET_ALL" };
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -70,6 +71,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case "TOGGLE_BOOK_READ": return { ...state, booksRead: { ...state.booksRead, [action.payload]: !state.booksRead[action.payload] } };
     case "SET_ARCH_TASKS": return { ...state, archTasks: action.payload };
     case "TOGGLE_ARCH_TASK": return { ...state, archTasks: { ...state.archTasks, [action.payload]: !state.archTasks[action.payload] } };
+    case "RESET_ALL": return { ...initialState };
     default: return state;
   }
 }

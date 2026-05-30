@@ -25,13 +25,6 @@ function ensureInit() {
     }
   }
 
-  try {
-    const sa = require("../../../firebase-service-account.json");
-    _app = initializeApp({ credential: cert(sa) });
-    console.log("[Firebase Admin] Initialised via service account JSON file");
-    return;
-  } catch (_) {}
-
   throw new Error("[Firebase Admin] No credentials found. Set FIREBASE_SERVICE_ACCOUNT_JSON env var or provide firebase-service-account.json");
 }
 
