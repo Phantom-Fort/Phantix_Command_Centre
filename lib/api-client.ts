@@ -79,3 +79,8 @@ export function addManifestEntry(data: any) { return apiFetch("/api/manifest", {
 export function deleteManifestEntry(id: string) { return apiFetch(`/api/manifest/${id}`, { method: "DELETE" }); }
 
 export function seedData() { return apiFetch("/api/admin/seed", { method: "POST" }); }
+
+export async function getMvpItems() { return apiFetch("/api/mvp"); }
+export async function addMvpItem(data: any) { return apiFetch("/api/mvp", { method: "POST", body: JSON.stringify(data) }); }
+export async function updateMvpItem(id: string, data: any) { return apiFetch(`/api/mvp/${id}`, { method: "PATCH", body: JSON.stringify(data) }); }
+export async function deleteMvpItem(id: string) { return apiFetch(`/api/mvp/${id}`, { method: "DELETE" }); }

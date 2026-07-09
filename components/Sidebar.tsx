@@ -29,6 +29,7 @@ export default function Sidebar() {
       <NavItem icon="◈" label="Phases & Delivery" page="phases" current={currentPage} navigate={navigate} />
       <NavItem icon="◻" label="Documents" page="documents" current={currentPage} navigate={navigate} badge="16" />
       <NavItem icon="◧" label="Research Tracker" page="research" current={currentPage} navigate={navigate} />
+      <NavItem icon="✓" label="MVP Definition" page="mvp" current={currentPage} navigate={navigate} />
 
       <div className="sidebar-label">Knowledge</div>
       <NavItem icon="💡" label="Book Insights" page="insights" current={currentPage} navigate={navigate} badge={String(insights.length)} badgeClass="purple" />

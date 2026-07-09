@@ -196,7 +196,7 @@ export default function AuthScreen() {
           </div>
         )}
 
-        <div className="auth-note">Phantix Command Centre · v0.1 · Pre-Development Phase</div>
+        <div className="auth-note">Phantix Command Centre · v0.2 · Pre-Development Phase</div>
       </div>
     </div>
   );

@@ -90,9 +90,21 @@ export type NavPage =
   | "architecture"
   | "milestones"
   | "risks"
-  | "log";
+  | "log"
+  | "mvp";
 
 export interface UserState {
   booksRead?: Record<string, boolean>;
   archTasks?: Record<string, boolean>;
+}
+
+export interface MvpItem {
+  id: string;
+  title: string;
+  description: string;
+  status: "done" | "in_progress" | "pending";
+  priority: string;
+  category: string;
+  addedBy?: string;
+  createdAt?: any;
 }

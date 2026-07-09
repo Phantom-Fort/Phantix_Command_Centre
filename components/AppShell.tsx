@@ -14,6 +14,7 @@ import Architecture from "./Architecture";
 import Milestones from "./Milestones";
 import Risks from "./Risks";
 import ActivityLog from "./ActivityLog";
+import Mvp from "./Mvp";
 
 export default function AppShell() {
   const { currentPage } = useApp();
@@ -30,6 +31,7 @@ export default function AppShell() {
       case "milestones": return <Milestones />;
       case "risks": return <Risks />;
       case "log": return <ActivityLog />;
+      case "mvp": return <Mvp />;
       default: return <Overview />;
     }
   };

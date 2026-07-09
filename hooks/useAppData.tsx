@@ -16,6 +16,18 @@ interface AppState {
   manifest: ManifestEntry[];
   booksRead: Record<string, boolean>;
   archTasks: Record<string, boolean>;
+  mvpItems: MvpItem[];
+}
+
+export interface MvpItem {
+  id: string;
+  title: string;
+  description: string;
+  status: "done" | "in_progress" | "pending";
+  priority: string;
+  category: string;
+  addedBy?: string;
+  createdAt?: any;
 }
 
 type AppAction =
@@ -43,7 +55,11 @@ type AppAction =
   | { type: "TOGGLE_BOOK_READ"; payload: string }
   | { type: "SET_ARCH_TASKS"; payload: Record<string, boolean> }
   | { type: "TOGGLE_ARCH_TASK"; payload: string }
-  | { type: "RESET_ALL" };
+  | { type: "RESET_ALL" }
+  | { type: "SET_MVP_ITEMS"; payload: MvpItem[] }
+  | { type: "ADD_MVP_ITEM"; payload: MvpItem }
+  | { type: "UPDATE_MVP_ITEM"; payload: { id: string; updates: Partial<MvpItem> } }
+  | { type: "DELETE_MVP_ITEM"; payload: string };
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -72,6 +88,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_ARCH_TASKS": return { ...state, archTasks: action.payload };
     case "TOGGLE_ARCH_TASK": return { ...state, archTasks: { ...state.archTasks, [action.payload]: !state.archTasks[action.payload] } };
     case "RESET_ALL": return { ...initialState };
+    case "SET_MVP_ITEMS": return { ...state, mvpItems: action.payload };
+    case "ADD_MVP_ITEM": return { ...state, mvpItems: [...state.mvpItems, action.payload] };
+    case "UPDATE_MVP_ITEM": return { ...state, mvpItems: state.mvpItems.map((m) => m.id === action.payload.id ? { ...m, ...action.payload.updates } : m) };
+    case "DELETE_MVP_ITEM": return { ...state, mvpItems: state.mvpItems.filter((m) => m.id !== action.payload) };
     default: return state;
   }
 }
@@ -88,6 +108,7 @@ const initialState: AppState = {
   manifest: [],
   booksRead: {},
   archTasks: {},
+  mvpItems: [],
 };
 
 interface AppContextType extends AppState {
@@ -126,13 +147,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
       const isAdmin = session.role === "admin";
-      const [logsRes, milestonesRes, risksRes, stateRes, insightsRes, manifestRes] = await Promise.all([
+      const [logsRes, milestonesRes, risksRes, stateRes, insightsRes, manifestRes, mvpRes] = await Promise.all([
         api.getLogs(),
         api.getMilestones(),
         api.getRisks(),
         api.getState(),
         api.getInsights(),
         isAdmin ? api.getManifest() : Promise.resolve({ manifest: [] }),
+        api.getMvpItems(),
       ]);
 
       dispatch({ type: "SET_LOGS", payload: logsRes.logs || [] });
@@ -142,6 +164,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "SET_ARCH_TASKS", payload: stateRes.state?.archTasks || {} });
       dispatch({ type: "SET_INSIGHTS", payload: insightsRes.insights || [] });
       if (isAdmin) dispatch({ type: "SET_MANIFEST", payload: manifestRes.manifest || [] });
+      dispatch({ type: "SET_MVP_ITEMS", payload: mvpRes.items || [] });
 
       await new Promise((resolve) => setTimeout(resolve, 800));
     } catch (err: any) {
