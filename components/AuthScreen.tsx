@@ -108,7 +108,7 @@ export default function AuthScreen() {
           <img src="/logo.png" alt="Phantix Logo" className="auth-logo-img" />
           <div>
             <div className="auth-brand">PHANTIX</div>
-            <div className="auth-brand-sub">Security Solutions</div>
+            <div className="auth-brand-sub">PROTECT. PREVENT. PERFORM.</div>
           </div>
         </div>
 

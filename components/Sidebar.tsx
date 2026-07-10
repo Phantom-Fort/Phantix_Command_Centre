@@ -19,7 +19,7 @@ export default function Sidebar() {
           <img className="brand-img" src="/logo.png" alt="Phantix" />
           <div>
             <div className="brand-name">PHANTIX</div>
-            <div className="brand-sub">Command Centre</div>
+            <div className="brand-sub">PROTECT. PREVENT. PERFORM.</div>
           </div>
         </div>
       </div>
@@ -40,6 +40,9 @@ export default function Sidebar() {
       <NavItem icon="◆" label="Milestones" page="milestones" current={currentPage} navigate={navigate} />
       <NavItem icon="▲" label="Risk Register" page="risks" current={currentPage} navigate={navigate} badge={String(highRisks)} badgeClass="warn" />
       <NavItem icon="≡" label="Activity Log" page="log" current={currentPage} navigate={navigate} />
+
+      <div className="sidebar-label">Branding</div>
+      <NavItem icon="◆" label="Brand Kit" page="brand" current={currentPage} navigate={navigate} />
 
       <div className="sidebar-footer">
         <div className="user-row">

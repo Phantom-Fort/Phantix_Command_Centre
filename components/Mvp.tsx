@@ -23,6 +23,10 @@ export default function Mvp() {
   const [priority, setPriority] = useState("P1");
   const [category, setCategory] = useState("Core");
 
+  const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<"title" | "priority" | "category" | "status">("status");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
   async function add() {
     if (!title.trim() || !isAdmin) return;
     showLoader("Adding MVP item…");
@@ -65,6 +69,40 @@ export default function Mvp() {
     }
   }
 
+  const filtered = items
+    .filter((it) => {
+      if (!query.trim()) return true;
+      const q = query.toLowerCase();
+      return (
+        it.title.toLowerCase().includes(q) ||
+        (it.description || "").toLowerCase().includes(q) ||
+        it.category.toLowerCase().includes(q) ||
+        it.priority.toLowerCase().includes(q) ||
+        it.status.toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      const dir = sortDir === "asc" ? 1 : -1;
+      const getVal = (x: any) => {
+        if (sortKey === "title") return (x.title || "").toLowerCase();
+        if (sortKey === "priority") {
+          const order = { P1: 1, P2: 2, P3: 3, Future: 4 } as any;
+          return order[x.priority] ?? 99;
+        }
+        if (sortKey === "category") return (x.category || "").toLowerCase();
+        if (sortKey === "status") {
+          const order = { pending: 1, in_progress: 2, done: 3 } as any;
+          return order[x.status] ?? 99;
+        }
+        return "";
+      };
+      const va = getVal(a);
+      const vb = getVal(b);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+
   return (
     <div className="page active">
       <div className="section-header">
@@ -106,27 +144,50 @@ export default function Mvp() {
       )}
 
       <div className="card">
+        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <input
+            className="ifield"
+            placeholder="Search title, description, category..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            style={{ flex: 1, minWidth: 180 }}
+          />
+          <select className="ifield" value={sortKey} onChange={(e) => setSortKey(e.target.value as any)} style={{ width: 140 }}>
+            <option value="status">Sort: Status</option>
+            <option value="priority">Sort: Priority</option>
+            <option value="category">Sort: Category</option>
+            <option value="title">Sort: Title</option>
+          </select>
+          <button className="btn btn-sm" onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}>
+            {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
+          </button>
+          {query && (
+            <button className="btn btn-sm btn-dd" onClick={() => setQuery("")}>Clear</button>
+          )}
+        </div>
+
         <table className="dtable">
           <thead>
             <tr>
               <th>#</th>
-              <th>MVP Item</th>
-              <th>Priority</th>
-              <th>Category</th>
-              <th>Status</th>
+              <th style={{ cursor: "pointer" }} onClick={() => { setSortKey("title"); setSortDir((d) => d === "asc" && sortKey === "title" ? "desc" : "asc"); }}>MVP Item</th>
+              <th style={{ cursor: "pointer" }} onClick={() => { setSortKey("priority"); setSortDir((d) => d === "asc" && sortKey === "priority" ? "desc" : "asc"); }}>Priority</th>
+              <th style={{ cursor: "pointer" }} onClick={() => { setSortKey("category"); setSortDir((d) => d === "asc" && sortKey === "category" ? "desc" : "asc"); }}>Category</th>
+              <th style={{ cursor: "pointer" }} onClick={() => { setSortKey("status"); setSortDir((d) => d === "asc" && sortKey === "status" ? "desc" : "asc"); }}>Status</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {items.length === 0 ? (
+            {filtered.length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ textAlign: "center", color: "var(--muted)", padding: 24, fontSize: 12 }}>
-                  No MVP items defined yet.
-                  {isAdmin ? " Use the form above to add items." : ""}
+                  {items.length === 0
+                    ? (isAdmin ? "No MVP items defined yet. Use the form above to add items." : "No MVP items defined yet.")
+                    : "No items match your search."}
                 </td>
               </tr>
             ) : (
-              items.map((item, i) => (
+              filtered.map((item, i) => (
                 <tr key={item.id}>
                   <td style={{ fontFamily: "var(--fm)", fontSize: 10, color: "var(--muted)" }}>{i + 1}</td>
                   <td style={{ color: "var(--white)", fontSize: 12 }}>

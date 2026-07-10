@@ -11,7 +11,7 @@ export default function TopBar() {
     <div className="topbar">
       <div>
         <div className="topbar-title">{PAGE_TITLES[currentPage] || "Command Centre"}</div>
-        <div className="topbar-sub">2-Year Delivery Tracker · May 2026 → May 2028</div>
+        <div className="topbar-sub">Phantix Security Solutions · Brand: #16265C</div>
       </div>
       <div className="topbar-right">
         <div className="lock-pill">

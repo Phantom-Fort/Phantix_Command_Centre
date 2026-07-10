@@ -414,4 +414,5 @@ export const PAGE_TITLES: Record<string, string> = {
   milestones: "Key Milestones",
   risks: "Risk Register",
   log: "Activity Log",
+  brand: "Brand Kit",
 };

@@ -91,7 +91,8 @@ export type NavPage =
   | "milestones"
   | "risks"
   | "log"
-  | "mvp";
+  | "mvp"
+  | "brand";
 
 export interface UserState {
   booksRead?: Record<string, boolean>;
