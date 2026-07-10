@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useApp } from "@/hooks/useAppData";
-import { addMvpItem, updateMvpItem, deleteMvpItem } from "@/lib/api-client";
+import { addMvpItem, updateMvpItem, deleteMvpItem, addLog } from "@/lib/api-client";
 
 const STATUS_LABEL: Record<string, string> = {
   done: "✓ Done",
@@ -39,6 +39,8 @@ export default function Mvp() {
         category,
       });
       dispatch({ type: "ADD_MVP_ITEM", payload: newItem });
+      const entry = await addLog("update", `Added MVP item: ${title.trim()}`);
+      dispatch({ type: "ADD_LOG", payload: entry });
       setTitle("");
       setDesc("");
     } catch (err: any) {
@@ -47,13 +49,15 @@ export default function Mvp() {
     hideLoader();
   }
 
-  async function changeStatus(item: { id: string; status: "pending" | "in_progress" | "done" }) {
+  async function changeStatus(item: { id: string; status: "pending" | "in_progress" | "done"; title?: string }) {
     if (!isAdmin) return;
     const order: ("pending" | "in_progress" | "done")[] = ["pending", "in_progress", "done"];
     const next = order[(order.indexOf(item.status) + 1) % 3];
     try {
       await updateMvpItem(item.id, { status: next });
       dispatch({ type: "UPDATE_MVP_ITEM", payload: { id: item.id, updates: { status: next } } });
+      const entry = await addLog("update", `MVP status → ${next}: ${item.title || item.id}`);
+      dispatch({ type: "ADD_LOG", payload: entry });
     } catch (err: any) {
       alert("Failed to update: " + err.message);
     }
@@ -61,9 +65,12 @@ export default function Mvp() {
 
   async function remove(id: string) {
     if (!isAdmin || !confirm("Remove this item?")) return;
+    const item = items.find((i) => i.id === id);
     try {
       await deleteMvpItem(id);
       dispatch({ type: "DELETE_MVP_ITEM", payload: id });
+      const entry = await addLog("update", `Deleted MVP item: ${item?.title || id}`);
+      dispatch({ type: "ADD_LOG", payload: entry });
     } catch (err: any) {
       alert("Failed to delete: " + err.message);
     }

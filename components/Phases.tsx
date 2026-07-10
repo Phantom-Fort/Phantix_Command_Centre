@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useApp } from "@/hooks/useAppData";
+import { useState, useCallback, useEffect } from "react";
+import { setState, getState, addLog } from "@/lib/api-client";
 
-const PHASES = [
+export const PHASES = [
   {
     id: "p0",
     label: "PRE-DEV",
@@ -17,7 +19,6 @@ const PHASES = [
       "Partnership & Grant Proposal", "MVP Definition Document", "Research Findings Summary",
       "Service Maps & Diagrams",
     ],
-    checked: [0, 1, 2, 3, 4, 5],
     color: "rgba(37,99,235,0.2)",
     borderColor: "rgba(37,99,235,0.4)",
   },
@@ -34,7 +35,6 @@ const PHASES = [
       "Auth system (RBAC + MFA)", "NDPA + NIST compliance mapper", "Email alert notifications",
       "Pilot onboarding (10 SMEs)", "MVP security audit",
     ],
-    checked: [],
     color: "rgba(37,99,235,0.15)",
     borderColor: "rgba(37,99,235,0.3)",
   },
@@ -50,7 +50,6 @@ const PHASES = [
       "ISO 27001 + OWASP compliance engine", "Threat intel feed integration", "Remediation workflow engine",
       "REST API (beta)", "500 customer scale target", "MSSP pilot onboarding",
     ],
-    checked: [],
     color: "rgba(14,165,233,0.15)",
     borderColor: "rgba(14,165,233,0.3)",
   },
@@ -66,28 +65,131 @@ const PHASES = [
       "Offensive security module", "Plugin marketplace", "Advanced threat hunting",
       "Full compliance certification", "2,000+ customer target", "Series A readiness",
     ],
-    checked: [],
     color: "rgba(16,185,129,0.15)",
     borderColor: "rgba(16,185,129,0.3)",
   },
 ];
 
-export default function Phases() {
-  const [checkedSets, setCheckedSets] = useState<Record<string, Set<number>>>({
-    p0: new Set([0, 1, 2, 3, 4, 5]),
-    p1: new Set(),
-    p2: new Set(),
-    p3: new Set(),
-  });
+/** Document titles that appear as PRE-DEV deliverables (exact name match) */
+export const DOC_DELIVERABLE_NAMES = new Set([
+  "Executive Summary",
+  "Investor Pitch Document",
+  "Partnership & Grant Proposal",
+  "Product Strategy & Roadmap",
+  "Business Model Document",
+  "Competitor Analysis",
+  "Go-to-Market Strategy",
+  "System Architecture Manifest",
+  "Threat Model Document",
+  "AI Governance Manifest",
+  "Security Philosophy Document",
+  "Developer Contributor Guide",
+  "MVP Definition Document",
+  "Research Findings Summary",
+  "Service Maps & Diagrams",
+]);
 
-  const toggleDel = useCallback((phaseId: string, index: number) => {
-    setCheckedSets((prev) => {
-      const newSet = new Set(prev[phaseId]);
-      if (newSet.has(index)) newSet.delete(index);
-      else newSet.add(index);
-      return { ...prev, [phaseId]: newSet };
+const DEFAULT_CHECKED: Record<string, number[]> = {
+  p0: [0, 1, 2, 3, 4, 5],
+  p1: [],
+  p2: [],
+  p3: [],
+};
+
+function toSets(plain: Record<string, number[]>): Record<string, Set<number>> {
+  const out: Record<string, Set<number>> = {};
+  for (const p of PHASES) {
+    out[p.id] = new Set(plain[p.id] || DEFAULT_CHECKED[p.id] || []);
+  }
+  return out;
+}
+
+function toPlain(sets: Record<string, Set<number>>): Record<string, number[]> {
+  const out: Record<string, number[]> = {};
+  for (const [k, s] of Object.entries(sets)) out[k] = Array.from(s);
+  return out;
+}
+
+function docsFromPhases(sets: Record<string, Set<number>>): Record<string, "Complete" | "Pending"> {
+  const status: Record<string, "Complete" | "Pending"> = {};
+  for (const phase of PHASES) {
+    const checked = sets[phase.id] || new Set();
+    phase.deliverables.forEach((name, i) => {
+      if (DOC_DELIVERABLE_NAMES.has(name)) {
+        status[name] = checked.has(i) ? "Complete" : "Pending";
+      }
     });
+  }
+  return status;
+}
+
+export default function Phases() {
+  const { dispatch } = useApp();
+  const [checkedSets, setCheckedSets] = useState<Record<string, Set<number>>>(() => toSets(DEFAULT_CHECKED));
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getState();
+        const plain = res.state?.phasesChecked as Record<string, number[]> | undefined;
+        if (!cancelled && plain) setCheckedSets(toSets(plain));
+      } catch {
+        /* keep defaults */
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
+
+  const toggleDel = useCallback(async (phaseId: string, index: number) => {
+    const phase = PHASES.find((p) => p.id === phaseId);
+    if (!phase) return;
+    const label = phase.deliverables[index];
+
+    const prevSet = checkedSets[phaseId] || new Set<number>();
+    const becameChecked = !prevSet.has(index);
+    const newSet = new Set(prevSet);
+    if (becameChecked) newSet.add(index);
+    else newSet.delete(index);
+
+    const nextSets = { ...checkedSets, [phaseId]: newSet };
+    setCheckedSets(nextSets);
+
+    const plain = toPlain(nextSets);
+    const documentsStatus = docsFromPhases(nextSets);
+
+    try {
+      await setState("phasesChecked", plain);
+      await setState("documentsStatus", documentsStatus);
+      const entry = await addLog(
+        "doc",
+        becameChecked
+          ? `Marked complete (Phases): ${label}`
+          : `Marked pending (Phases): ${label}`
+      );
+      dispatch({ type: "ADD_LOG", payload: entry });
+    } catch (err: any) {
+      console.error("[Phases] persist failed:", err.message);
+      setCheckedSets(checkedSets);
+    }
+  }, [checkedSets, dispatch]);
+
+  if (!ready) {
+    return (
+      <div className="page active">
+        <div className="section-header">
+          <div>
+            <div className="section-title">Phases & Deliverables</div>
+            <div className="section-line"></div>
+          </div>
+        </div>
+        <div style={{ padding: 24, color: "var(--muted)", fontSize: 12 }}>Loading phase progress…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="page active">
@@ -96,11 +198,13 @@ export default function Phases() {
           <div className="section-title">Phases & Deliverables</div>
           <div className="section-line"></div>
         </div>
-        <div style={{ fontSize: 11, color: "var(--muted)" }}>Click to mark complete</div>
+        <div style={{ fontSize: 11, color: "var(--muted)" }}>
+          Click to mark complete · syncs to Documents
+        </div>
       </div>
       <div className="grid2" style={{ gap: 16 }}>
         {PHASES.map((phase) => {
-          const checked = checkedSets[phase.id];
+          const checked = checkedSets[phase.id] || new Set();
           const done = checked.size;
           const total = phase.deliverables.length;
           const pct = total ? Math.round((done / total) * 100) : 0;

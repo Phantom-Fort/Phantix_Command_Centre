@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useApp } from "@/hooks/useAppData";
 import { BOOKS } from "@/lib/data";
-import { setState } from "@/lib/api-client";
+import { setState, addLog } from "@/lib/api-client";
 
 export default function Research() {
   const { booksRead, dispatch } = useApp();
@@ -21,9 +21,18 @@ export default function Research() {
   }, [booksRead]);
 
   const toggleBook = async (key: string) => {
+    const wasRead = !!booksRead[key];
+    const [si, bi] = key.split("-").map(Number);
+    const book = BOOKS[si]?.books[bi];
+    const bookTitle = book?.t || key;
     dispatch({ type: "TOGGLE_BOOK_READ", payload: key });
     try {
       await setState("booksRead", { ...booksRead, [key]: !booksRead[key] });
+      const entry = await addLog(
+        "research",
+        `${wasRead ? "Unmarked" : "Read"}: ${bookTitle}`
+      );
+      dispatch({ type: "ADD_LOG", payload: entry });
     } catch (err: any) {
       dispatch({ type: "TOGGLE_BOOK_READ", payload: key });
       console.error("[Research] toggleBook save failed:", err.message);

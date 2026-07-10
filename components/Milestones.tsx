@@ -2,7 +2,7 @@
 
 import { useApp } from "@/hooks/useAppData";
 import { useRef } from "react";
-import { addMilestone, toggleMilestone, deleteMilestone } from "@/lib/api-client";
+import { addMilestone, toggleMilestone, deleteMilestone, addLog } from "@/lib/api-client";
 
 export default function Milestones() {
   const { milestones, isAdmin, dispatch, showLoader, hideLoader } = useApp();
@@ -24,6 +24,8 @@ export default function Milestones() {
         desc: descRef.current?.value.trim() || "",
       });
       dispatch({ type: "ADD_MILESTONE", payload: m });
+      const entry = await addLog("milestone", `Added milestone: ${title}`);
+      dispatch({ type: "ADD_LOG", payload: entry });
       if (titleRef.current) titleRef.current.value = "";
       if (dateRef.current) dateRef.current.value = "";
       if (descRef.current) descRef.current.value = "";
@@ -35,9 +37,15 @@ export default function Milestones() {
 
   const toggleMilestoneStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "done" ? "pending" : "done";
+    const m = milestones.find((x) => x.id === id);
     try {
       await toggleMilestone(id, newStatus);
       dispatch({ type: "TOGGLE_MILESTONE", payload: { id, status: newStatus } });
+      const entry = await addLog(
+        "milestone",
+        `${newStatus === "done" ? "Completed" : "Reopened"} milestone: ${m?.title || id}`
+      );
+      dispatch({ type: "ADD_LOG", payload: entry });
     } catch (err: any) {
       alert("Failed to update milestone: " + err.message);
     }

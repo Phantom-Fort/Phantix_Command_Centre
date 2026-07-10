@@ -2,15 +2,26 @@
 
 import { useApp } from "@/hooks/useAppData";
 import { ARCH_SERVICES } from "@/lib/data";
-import { setState } from "@/lib/api-client";
+import { setState, addLog } from "@/lib/api-client";
 
 export default function Architecture() {
   const { archTasks, dispatch } = useApp();
 
   const toggleArch = async (key: string) => {
+    const wasDone = !!archTasks[key];
+    const parts = key.replace("a-", "").split("-");
+    const si = parseInt(parts[0], 10);
+    const ti = parseInt(parts[1], 10);
+    const taskLabel = ARCH_SERVICES[si]?.tasks[ti] || key;
+
     dispatch({ type: "TOGGLE_ARCH_TASK", payload: key });
     try {
       await setState("archTasks", { ...archTasks, [key]: !archTasks[key] });
+      const entry = await addLog(
+        "update",
+        `${wasDone ? "Unchecked" : "Checked"} architecture: ${taskLabel}`
+      );
+      dispatch({ type: "ADD_LOG", payload: entry });
     } catch (err: any) {
       dispatch({ type: "TOGGLE_ARCH_TASK", payload: key });
       console.error("[Arch] toggleArch save failed:", err.message);

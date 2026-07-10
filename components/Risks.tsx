@@ -2,7 +2,7 @@
 
 import { useApp } from "@/hooks/useAppData";
 import { useRef } from "react";
-import { addRisk, deleteRisk } from "@/lib/api-client";
+import { addRisk, deleteRisk, addLog } from "@/lib/api-client";
 
 export default function Risks() {
   const { risks, isAdmin, dispatch, showLoader, hideLoader } = useApp();
@@ -25,6 +25,8 @@ export default function Risks() {
         owner: ownRef.current?.value || "—",
       });
       dispatch({ type: "ADD_RISK", payload: newRisk });
+      const entry = await addLog("update", `Added risk: ${title}`);
+      dispatch({ type: "ADD_LOG", payload: entry });
       if (titleRef.current) titleRef.current.value = "";
       if (mitRef.current) mitRef.current.value = "";
       if (catRef.current) catRef.current.value = "";
@@ -36,9 +38,12 @@ export default function Risks() {
   };
 
   const delRisk = async (id: string) => {
+    const risk = risks.find((r) => r.id === id);
     try {
       await deleteRisk(id);
       dispatch({ type: "DELETE_RISK", payload: id });
+      const entry = await addLog("update", `Deleted risk: ${risk?.title || id}`);
+      dispatch({ type: "ADD_LOG", payload: entry });
     } catch (err: any) {
       alert("Failed to delete risk: " + err.message);
     }
